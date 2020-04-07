@@ -1,0 +1,27 @@
+{
+  "name": "ujq",
+  "version": "0.0.1",
+  "description": "Universal Job Queue (UJQ) is a redis based multi platform supported Job management library. This can be used to create, update and delete a job which different aplication or micro-services can work together. Currently supported are node and python.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js",
+    "start": "node index.js"
+  },
+  "keywords": [
+    "ujq",
+    "Universal",
+    "Job",
+    "Queue",
+    "redis",
+    "queue",
+    "redis",
+    "job",
+    "queue"
+  ],
+  "author": "Krishna Raj K",
+  "license": "MIT",
+  "dependencies": {
+    "redis": "^3.0.2",
+    "rsmq": "^0.12.0"
+  }
+}
