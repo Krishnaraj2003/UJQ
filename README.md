@@ -1,7 +1,7 @@
 # UJQ
 Universal Job Queue or UJQ in short is a Redis based Simple Job management library build on top of RSMQ. This Library is light weight and build for working with microservices. Currently we have Node and Python implementation of Library. C# and Java are in pipeline. 
 ## Benifits
-1. Jobs can created and processed by different application or services
+1. Jobs can be created and processed by different application or services
 2. Auto trigger when job is created
 3. Job Completion and error indications
 
@@ -16,16 +16,16 @@ npm install --save ujq
 ```
 
 ## Connecting to Redis
-UJQ uses native promises, hence .then will return a true once connection is established
+UJQ uses native promises, hence ".then" will return a true once connection is established
 
 ```javascript
 const UJQ = require("ujq");
 const ujq = new UJQ({ port: "6379", host: "127.0.0.1" });
 
-\*Attempt connection*\
+//Attempt connection
 ujq.connect()
     .then((result) => { 
-      \*returns a true*\
+      //returns a true
     })
     .catch((e)=>console.log(e));
     
@@ -35,7 +35,7 @@ The following Code will create a new Job
 ```javascript
 ujq.createJob("Job_name", { data: "Some Input Data" })
    .then((result) => {
-          \*Return value will be {id:'some id',status:true}*\
+          //Return value will be {id:'some id',status:true}
    }).catch((e)=>console.log(e));
     
 ```
@@ -75,26 +75,27 @@ const ujq = new UJQ({ port: "6379", host: "127.0.0.1" })
 const app = express()
 const port = 3000
 
-app.get('/', (req, res) => {
   ujq.connect()
     .then(() => {
-        ujq.createJob("test_q2", { test: "sample Data" })
+        app.get('/', (req, res) => {
 
-            //Set On Complete
-            .then((result) => ujq.onCompleted(result.id))
+            ujq.createJob("test_q2", { test: "sample Data" })
 
-            //Send Result
-            .then((result) => res.send(result))
+                //Set On Complete
+                .then((result) => ujq.onCompleted(result.id))
+
+                //Send Result
+                .then((result) => res.send(result))
     })
-    .catch((e) => console.log(e))
-})
+    
+}).catch((e) => console.log(e))
 
 app.listen(port, () => console.log(`Example app listening at http://localhost:${port}`))
 ```
 
 Now Create **Worker.js** with the below Code
 ```javascript
-const UJQ = require("./index.js");
+const UJQ = require("ujq");
 const ujq = new UJQ({ port: "6379", host: "127.0.0.1" });
 
 //Connect to UJQ
@@ -107,4 +108,4 @@ ujq.connect()
     }).catch(e=>console.log(e))
 ```
 
-Run bot the files and **Enjoy** :B
+Run both the files and **Enjoy** :B
