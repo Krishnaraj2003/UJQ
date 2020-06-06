@@ -29,7 +29,6 @@ class redisMain extends Rsmq {
             this.checkQueueExistRSMQ(queueName)
                 .then((result) => {
                     if (!result) {
-
                         return this.createQueueRSMQ(queueName);
                     }
                     return new Promise((resolve) => resolve(true));
@@ -72,6 +71,10 @@ class redisMain extends Rsmq {
         return new Promise((resolve, reject) => {
             this.createQueue({ qname, vt: 0, delay: 0, maxsize: -1 }, (err) => {
                 if (err) {
+                    if (err.toString().includes("queueExists")) {
+                        resolve(true);
+                        return;
+                    }
                     reject(err);
                     return;
                 }
@@ -82,49 +85,106 @@ class redisMain extends Rsmq {
 
     //Run Redis Queue and Job
     onCreatedJob(qname, callback) {
-        this.popMessage({ qname }, (err, resp) => {
-            let errVal = undefined;
-            if (err) {
-                errVal = err;
-            }
+        return new Promise((resolve1) => {
+            this.popMessage({ qname }, (err, resp) => {
+                if (
+                    !resp ||
+                    !resp.message ||
+                    (typeof resp.message === "object" &&
+                        JSON.stringify(resp.message) == "{}")
+                ) {
+                    resolve1(false);
+                    return;
+                }
+                let errVal = undefined;
+                if (err) {
+                    errVal = err;
+                }
+                resolve1(true);
+                let onCompleteJob = async (data = {}, err = false) => {
+                    let self = this;
+                    let id = resp.id;
+                    return new Promise(function (resolve, reject) {
+                        let qitem = {
+                            qname: self.onCompleteQName,
+                            message: JSON.stringify({
+                                id,
+                                data,
+                                err,
+                                initialData: resp.message,
+                                completed_on: +new Date(),
+                            }),
+                            vt: 0,
+                        };
+         
+                        self.createJobRSMQ(qitem)
+                            .then((result) => {
+                       
+                                resolve(result);
+                            })
+                            .catch((e) => reject(e));
+                    });
+                };
 
-            let onCompleteJob = async (data = {}, err = false) => {
-                let self = this;
-                return new Promise(function (resolve, reject) {
-                    self.createJobRSMQ({
-                        qname: self.onCompleteQName,
-                        message: JSON.stringify({
-                            id: resp.id,
-                            data,
-                            err,
-                            initialData: resp.message,
-                        }),
-                        vt: 0,
-                    })
-                        .then((result) => resolve(result))
-                        .catch((e) => reject(e));
-                });
-            };
-
-            if (resp && resp.id) {
-                resp.message = JSON.parse(resp.message);
-                callback(err, resp, onCompleteJob);
-            }
+                if (resp && resp.id) {
+                    resp.message = JSON.parse(resp.message);
+                    callback(err, resp, onCompleteJob);
+                }
+            });
         });
     }
 
     onCompletedJob(id) {
-        let qname = this.onCompleteQName;
         return new Promise((resolve) => {
-            this.receiveMessage({ qname }, (err, resp) => {
-                resp.message = JSON.parse(resp.message);
-                if (resp.message.id !== id) {
+            let qname = this.onCompleteQName;
+            this.getQueueAttributes({ qname }, (err, resp) => {
+                let total = resp.msgs;
+                if (total === 0) {
                     resolve({ status: false });
                     return;
                 }
-                this.deleteMessage({ qname, id }, () => {
-                    resolve({ status: true, data: resp.message });
-                });
+                let count = 0;
+                let msgLoop = () => {
+                    this.receiveMessage({ qname }, (err, resp1) => {
+                        if (
+                            resp1.message &&
+                            typeof resp1.message === "string"
+                        ) {
+                            resp1.message = JSON.parse(resp1.message);
+                        }
+                        if (
+                            resp1 &&
+                            resp1.message &&
+                            resp1.message.id &&
+                            resp1.message.id === id
+                        ) {
+                            this.deleteMessage({ qname, id: resp1.id }, () => {
+                                resolve({ status: true, data: resp1.message });
+                                return;
+                            });
+                        } else if (count === total - 1) {
+                            resolve({ status: false });
+                            return;
+                        } else {
+                            count++;
+                            if (
+                                resp1.message &&
+                                resp1.message.created_on &&
+                                resp1.message.created_on + 30 * 1000 * 60 <=
+                                    +new Date()
+                            ) {
+                                setTimeout(() =>
+                                    this.deleteMessage(
+                                        { qname, id: resp1.id },
+                                        () => {}
+                                    )
+                                );
+                            }
+                            setTimeout(() => msgLoop());
+                        }
+                    });
+                };
+                msgLoop();
             });
         });
     }

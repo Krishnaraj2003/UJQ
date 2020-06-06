@@ -6,7 +6,7 @@ Universal Job Queue or UJQ in short is a Redis based Simple Job management libra
 3. Job Completion and error indications
 
 # Node.JS
-[CLICK HERE](https://www.google.com) for Python Package
+[CLICK HERE](https://github.com/Krishnaraj2003/PyUJQ) for Python Package
 
 ## Installing UJQ
 You can use NPM to install

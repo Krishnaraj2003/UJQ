@@ -22,45 +22,48 @@ class UJQ extends RedisMain {
     createJob(qname, parameters = {}, vt = 0) {
         return new Promise((resolve, reject) => {
             let input = { qname, message: JSON.stringify(parameters), vt };
-            this.checkQueueExistRSMQ(qname)
-                .then((result) => {
-                    if (result) return this.createJobRSMQ(input);
-
-                    return this.createQueueRSMQ(qname)
-                        .then(() => this.createJobRSMQ(input))
-                        .catch((e) => reject(e));
-                })
+            this.createJobRSMQ(input)
                 .then((result) => resolve(result))
-                .catch((e) => reject(e));
+                .catch(() => {
+                    this.createQueueRSMQ(qname)
+                        .then(() => this.createJobRSMQ(input))
+                        .then((result) => resolve(result))
+                        .catch((e) => reject(e));
+                });
         });
     }
 
     onCreated(qname, callback) {
-        setInterval(() => {
-            this.onCreatedJob(qname, callback);
-        }, 10);
+        this.onCreatedJob(qname, callback).then(() => {
+            setTimeout(() => {
+                this.onCreated(qname, callback);
+            }, 10);
+        });
     }
 
-    onCompleted(id, timeout = 120 * 1000) {
+    onCompleted(id, timeout = 120 * 1000, counter = 0) {
         return new Promise((resolve, reject) => {
-            let counter = 0;
-            let intvl = setInterval(() => {
+            let loopFn = () => {
                 this.onCompletedJob(id).then((result) => {
                     if (result.status) {
-                        clearInterval(intvl);
-                        resolve(result);
+                        resolve(result.data);
                         return;
                     }
-                    counter++;
-                    if (counter * 10 >= timeout) {
+                    setTimeout(() => {
+                        counter++;
+                        loopFn()
+                    }, 10);
+                    
+
+                    if (counter >= timeout) {
                         reject(
                             `Error Unable to resolve the response in ${timeout} ms`
                         );
-                        clearInterval(intvl);
                         return;
                     }
-                }, 10);
-            });
+                });
+            };
+            loopFn();
         });
     }
 }
