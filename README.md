@@ -66,7 +66,7 @@ The above code will complete the job.
 On version 2.0.0 and above, we have created a runJob method combining both createJob and onCompleted method
 ```javascript
 
-ujq.onCreated("Job_name", (err, data, complete) => {
+ujq.runJob("Job_name", (err, data, complete) => {
     console.log("Data", data);
     complete({ job: "done" }, false);
 });
